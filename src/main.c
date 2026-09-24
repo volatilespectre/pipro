@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/types.h>
 
 int main(int argc, char *argv[]) {
     if (argc == 1) {
@@ -79,5 +80,11 @@ int main(int argc, char *argv[]) {
 
         start = i + 1;
         command_number++;
+    }
+    for (int i = 0; i < command_count; i++) {
+        pid_t pid = fork();
+	if (pid == 0) {
+            execvp(pipeline[i][0], pipeline[i]);
+	}
     }
 }
