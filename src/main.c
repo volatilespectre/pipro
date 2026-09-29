@@ -4,87 +4,78 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include "parser.h"
 
 int main(int argc, char *argv[]) {
-    if (argc == 1) {
-        printf("You haven't entered a command to be debugged. ");
-        return EXIT_SUCCESS;
-    }
+    // Set up variables to get from parser
+    char ***pipeline;
+    int command_count;
+    int parser = parse_args(argc, argv, &pipeline, &command_count);
 
-    int count = 0;
-    int capacity = 5;
-    char **tokens = malloc(capacity * sizeof(char *));
-    if (tokens == NULL) {
-	    perror("malloc");
-	    return EXIT_FAILURE;
-    }
-    char *current = argv[1];
-
-    while (*current != '\0') {
-        while (isspace(*current)) {
-            current++;
-        }
-
-        char *start = current;
-        while(*current != '\0' && !isspace(*current)) {
-            current++;
-        }
-
-        int length = current - start;
-        tokens[count] = malloc((length + 1) * sizeof(char));
-        memcpy(tokens[count], start, length);
-        tokens[count][length] = '\0';
-        count++;
-        if (count == capacity) {
-            capacity += 5;
-            char **tmp = realloc(tokens, capacity * sizeof(char *));
-            if (tmp == NULL) {
-                perror("realloc");
-                return EXIT_FAILURE;
-            } else {
-                tokens = tmp;
-            }
-	    }
-    }
-
-    int command_count = 1
-    ;
-    for (int i = 0; i < count; i++) {
-        if (strcmp(tokens[i], "|") == 0) {
-            command_count++;
-        }
-    }
-    char ***pipeline = malloc(command_count * sizeof(char **));
-    if (pipeline == NULL) {
-        perror("malloc");
+    // Parser will return exit failure if allocation fails or incorrect arguments are entered
+    if (parser == EXIT_FAILURE) {
         return EXIT_FAILURE;
     }
-    int start = 0;
-    int len = 0;
-    int command_number = 0;
-    for (int i = 0; i <= count; i++) {
-        if (i != count && strcmp(tokens[i], "|") != 0) {
-            continue;
-        } 
 
-        len = i - start;
-        pipeline[command_number] = malloc((len + 1) * sizeof(char *));
-        if (pipeline[command_number] == NULL) {
-            perror("malloc");
+    // Creates pipes to be used between each command (n-1 pipes, 2 ends per pipe as [read0, write0, read1, write1,...])
+    int *pipefds = malloc(2 * (command_count - 1) * sizeof(int));
+    for (int i = 0; i < command_count - 1; i++) {
+        if (pipe(&pipefds[i * 2]) == -1) {
+            perror("pipe");
             return EXIT_FAILURE;
         }
-        for (int j = 0; j < len; j++) {
-            pipeline[command_number][j] = tokens[start + j];
-        }
-        pipeline[command_number][len] = NULL;
+    }
 
-        start = i + 1;
-        command_number++;
-    }
+    pid_t *pids = malloc(command_count * sizeof(pid_t));
     for (int i = 0; i < command_count; i++) {
+        // Creates child to execute this command
         pid_t pid = fork();
-	if (pid == 0) {
+        if (pid == -1) {
+            perror("fork");
+            return EXIT_FAILURE;
+        }
+
+        // Child process
+        if (pid == 0) {
+            // Redirect read end of previous pipe to stdin if not first command
+            if (i != 0) {
+                if (dup2(pipefds[(i - 1) * 2], STDIN_FILENO)) {
+                    perror("dup2");
+                    return EXIT_FAILURE;
+                }
+            }
+
+            // Redirect stdout to next pipe if not last command
+            if (i != command_count - 1) {
+                if (dup2(pipefds[i * 2 + 1], STDOUT_FILENO) == -1) {
+                    perror("dup2");
+                    return EXIT_FAILURE;
+                }
+            }
+
+            // Close all pipe ends, needed ones are already duplicated
+            for (int i = 0; i < 2 * (command_count - 1); i++) {
+                close(pipefds[i]);
+            }
+
             execvp(pipeline[i][0], pipeline[i]);
-	}
+            perror("execvp");
+            return EXIT_FAILURE;
+        }
+
+        // Parent process (all that is left after child executes) saves pid to wait later
+        pids[i] = pid;
     }
+
+    // Close all remaining pipe ends
+    for (int i = 0; i < 2 * (command_count - 1); i++) {
+        close(pipefds[i]);
+    }
+
+    int *statuses = malloc(command_count * sizeof(int));
+    for (int i = 0; i < command_count; i++) {
+        waitpid(pids[i], &statuses[i], 0);
+    }
+    return 0;
 }
