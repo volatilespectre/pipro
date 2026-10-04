@@ -3,9 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include "parser.h"
+#include "pipeline.h"
 
 int main(int argc, char *argv[]) {
     // Set up variables to get from parser
@@ -18,64 +20,39 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Creates pipes to be used between each command (n-1 pipes, 2 ends per pipe as [read0, write0, read1, write1,...])
-    int *pipefds = malloc(2 * (command_count - 1) * sizeof(int));
-    for (int i = 0; i < command_count - 1; i++) {
-        if (pipe(&pipefds[i * 2]) == -1) {
-            perror("pipe");
-            return EXIT_FAILURE;
-        }
-    }
-
+    // Pipeline will return PIDs to wait for
     pid_t *pids = malloc(command_count * sizeof(pid_t));
-    for (int i = 0; i < command_count; i++) {
-        // Creates child to execute this command
-        pid_t pid = fork();
-        if (pid == -1) {
-            perror("fork");
-            return EXIT_FAILURE;
-        }
-
-        // Child process
-        if (pid == 0) {
-            // Redirect read end of previous pipe to stdin if not first command
-            if (i != 0) {
-                if (dup2(pipefds[(i - 1) * 2], STDIN_FILENO)) {
-                    perror("dup2");
-                    return EXIT_FAILURE;
-                }
-            }
-
-            // Redirect stdout to next pipe if not last command
-            if (i != command_count - 1) {
-                if (dup2(pipefds[i * 2 + 1], STDOUT_FILENO) == -1) {
-                    perror("dup2");
-                    return EXIT_FAILURE;
-                }
-            }
-
-            // Close all pipe ends, needed ones are already duplicated
-            for (int i = 0; i < 2 * (command_count - 1); i++) {
-                close(pipefds[i]);
-            }
-
-            execvp(pipeline[i][0], pipeline[i]);
-            perror("execvp");
-            return EXIT_FAILURE;
-        }
-
-        // Parent process (all that is left after child executes) saves pid to wait later
-        pids[i] = pid;
+    if (pids == NULL) {
+        perror("malloc");
+        return EXIT_FAILURE;
     }
-
-    // Close all remaining pipe ends
-    for (int i = 0; i < 2 * (command_count - 1); i++) {
-        close(pipefds[i]);
+    int pipeline_result = run_pipeline(pipeline, command_count, pids);
+    
+    // Pipeline will return exit failure if system calls (pipe, fork, dup2) or allocation fail
+    if (pipeline_result == EXIT_FAILURE) {
+        return EXIT_FAILURE;
     }
+    
 
     int *statuses = malloc(command_count * sizeof(int));
+    if (statuses == NULL) {
+        perror("malloc");
+        return EXIT_FAILURE;
+    }
+
     for (int i = 0; i < command_count; i++) {
         waitpid(pids[i], &statuses[i], 0);
     }
-    return 0;
+
+    for (int i = 0; i < command_count; i++) {
+        if (WIFEXITED(statuses[i])) {
+            int code = WEXITSTATUS(statuses[i]);
+            printf("%s exited with status %d\n", pipeline[i][0], code);
+        } else if (WIFSIGNALED(statuses[i])) {
+            int sig = WTERMSIG(statuses[i]);
+            printf("%s killed by signal %d\n", pipeline[i][0], sig);
+        }
+    }
+
+    return EXIT_SUCCESS;
 }
