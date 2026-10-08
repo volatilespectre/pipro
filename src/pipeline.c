@@ -1,12 +1,15 @@
+#define _POSIX_C_SOURCE 200809L
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
-int run_pipeline(char ***pipeline, int command_count, pid_t *pids) {
+int run_pipeline(char ***pipeline, int command_count, pid_t *pids,
+                 struct timespec *starts, int output_fd) {
   // Creates pipes to be used between each command (n-1 pipes, 2 ends per pipe
   // as [read0, write0, read1, write1,...])
   int *pipefds = malloc(2 * (command_count - 1) * sizeof(int));
@@ -34,23 +37,30 @@ int run_pipeline(char ***pipeline, int command_count, pid_t *pids) {
     if (pid == 0) {
       // Redirect read end of previous pipe to stdin if not first command
       if (i != 0) {
-        if (dup2(pipefds[(i - 1) * 2], STDIN_FILENO)) {
+        if (dup2(pipefds[(i - 1) * 2], STDIN_FILENO) == -1) {
           perror("dup2");
           return EXIT_FAILURE;
         }
       }
 
-      // Redirect stdout to next pipe if not last command
+      // Redirect stdout to next pipe if not last command, else redirect output
+      // to a file to print output
       if (i != command_count - 1) {
         if (dup2(pipefds[i * 2 + 1], STDOUT_FILENO) == -1) {
           perror("dup2");
           return EXIT_FAILURE;
         }
+        close(output_fd);
+      } else {
+        if (dup2(output_fd, STDOUT_FILENO) == -1) {
+          perror("dup2");
+          exit(EXIT_FAILURE);
+        }
       }
 
       // Close all pipe ends, needed ones are already duplicated
-      for (int i = 0; i < 2 * (command_count - 1); i++) {
-        close(pipefds[i]);
+      for (int j = 0; j < 2 * (command_count - 1); j++) {
+        close(pipefds[j]);
       }
 
       execvp(pipeline[i][0], pipeline[i]);
@@ -61,6 +71,13 @@ int run_pipeline(char ***pipeline, int command_count, pid_t *pids) {
     // Parent process (all that is left after child executes) saves pid to wait
     // later
     pids[i] = pid;
+
+    // Record start time
+    int time_return = clock_gettime(CLOCK_MONOTONIC, &starts[i]);
+    if (time_return == EXIT_FAILURE) {
+      perror("clock_gettime");
+      return EXIT_FAILURE;
+    }
   }
 
   // Close all remaining pipe ends
