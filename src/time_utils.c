@@ -39,3 +39,7 @@ void timeval_subtract(double *result, struct timeval *start,
   int factor = pow(10, decimal_places);
   *result = round(*result * factor) / factor;
 }
+
+double timeval_seconds(const struct timeval time) {
+  return (double)time.tv_sec + (double)time.tv_usec / 1e6;
+}

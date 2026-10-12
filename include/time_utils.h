@@ -7,4 +7,6 @@ void timespec_subtract(double *result, struct timespec *start,
 void timeval_subtract(double *result, struct timeval *start,
                       struct timeval *end, int decimal_places);
 
+double timeval_seconds(const struct timeval time);
+
 #endif

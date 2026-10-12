@@ -5,7 +5,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-int parse_args(int argc, char *argv[], char ****pipeline, int *command_count) {
+int parse_pipeline(int argc, char *argv[], char ****pipeline,
+                   int *command_count) {
   if (argc == 1) {
     printf("You haven't entered a command to be debugged. ");
     return EXIT_FAILURE;
@@ -87,5 +88,8 @@ int parse_args(int argc, char *argv[], char ****pipeline, int *command_count) {
     start = i + 1;
     command_number++;
   }
+
+  free(tokens);
+
   return EXIT_SUCCESS;
 }
