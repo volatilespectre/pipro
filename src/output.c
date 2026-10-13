@@ -83,7 +83,7 @@ void generate_progress_line(char *command_name, double runtime,
 }
 
 void generate_completed_line(char *command_name, int status, double runtime,
-                             struct rusage usage, char *buffer) {
+                             struct rusage usage, char *buffer, bool colour, int decimal_places) {
   double user_cpu = timeval_seconds(usage.ru_utime);
   double sys_cpu = timeval_seconds(usage.ru_stime);
 
@@ -100,27 +100,43 @@ void generate_completed_line(char *command_name, int status, double runtime,
 
   char status_str[35];
   int padding_width = 20;
-  if (WIFEXITED(status)) {
-    padding_width = 30;
-    if (WEXITSTATUS(status) == 0) {
-      snprintf(status_str, sizeof(status_str),
-               "Returned \033[32m%d (OK) \033[39m", WEXITSTATUS(status));
+  if (colour) {
+    if (WIFEXITED(status)) {
+      padding_width = 30;
+      if (WEXITSTATUS(status) == 0) {
+        snprintf(status_str, sizeof(status_str),
+                "Returned \033[32m%d (OK) \033[39m", WEXITSTATUS(status));
+      } else {
+        snprintf(status_str, sizeof(status_str),
+                "Returned \033[31m%d (Fail) \033[39m", WEXITSTATUS(status));
+      }
+    } else if (WIFSIGNALED(status)) {
+      snprintf(status_str, sizeof(status_str), "Signal (%d)", WTERMSIG(status));
     } else {
-      snprintf(status_str, sizeof(status_str),
-               "Returned \033[31m%d (Fail) \033[39m", WEXITSTATUS(status));
+      snprintf(status_str, sizeof(status_str), "UNKNOWN");
     }
-  } else if (WIFSIGNALED(status)) {
-    snprintf(status_str, sizeof(status_str), "Signal (%d)", WTERMSIG(status));
   } else {
-    snprintf(status_str, sizeof(status_str), "UNKNOWN");
+    if (WIFEXITED(status)) {
+      if (WEXITSTATUS(status) == 0) {
+        snprintf(status_str, sizeof(status_str),
+                "Returned %d (OK)", WEXITSTATUS(status));
+      } else {
+        snprintf(status_str, sizeof(status_str),
+                "Returned %d (Fail)", WEXITSTATUS(status));
+      }
+    } else if (WIFSIGNALED(status)) {
+      snprintf(status_str, sizeof(status_str), "Signal (%d)", WTERMSIG(status));
+    } else {
+      snprintf(status_str, sizeof(status_str), "UNKNOWN");
+    }
   }
-  snprintf(buffer, 256, "%-20s %-*s %-20.3f %-15.3f %-15.3f %-20.3f\n",
-           command_name, padding_width, status_str, runtime, user_cpu, sys_cpu,
+  snprintf(buffer, 256, "%-20s %-*s %-20.*f %-15.*f %-15.*f %-20.3f\n",
+           command_name, padding_width, status_str, decimal_places, runtime, decimal_places, user_cpu, decimal_places, sys_cpu,
            peak_mem_mb);
 }
 
 int show_output(char ***pipeline, int command_count, pid_t *pids,
-                struct timespec *starts) {
+                struct timespec *starts, bool is_static, int decimal_places, FILE *output, bool quiet) {
 
   // These variables are needed for both interactive and static output
   int *statuses = malloc(command_count * sizeof(int));
@@ -137,7 +153,7 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
   struct rusage usage;
   int status;
 
-  if (isatty(STDOUT_FILENO)) {
+  if (isatty(STDOUT_FILENO) && !is_static) {
     // Variables only used for interactive output
     bool *completed = calloc(command_count, sizeof(bool));
     if (completed == NULL) {
@@ -166,7 +182,7 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
     int completed_count = 0;
 
     int clock_return = clock_gettime(CLOCK_MONOTONIC, &last_redraw);
-    if (clock_return == EXIT_FAILURE) {
+    if (clock_return == -1) {
       perror("clock_gettime");
       return EXIT_FAILURE;
     }
@@ -181,11 +197,11 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
       status_bar_setup(&status_bar_infos[i], i, command_count);
       char status_bar[43];
       generate_bar(&status_bar_infos[i], status_bar);
-      printf("%-20s Running %-45s %.1fs\n", pipeline[i][0], status_bar,
+      printf("%-20s Running %-45s %.*fs\n", pipeline[i][0], status_bar, decimal_places,
              0.000000000);
     }
 
-    // Loop: Wait for 0.01s, then redraw terminal if needed (>0.1s)
+    // Loop: Wait for 1/10^decimal_places s (e.g. 0.1s if decimal_places = 1), then redraw terminal if needed (>0.1s)
     // since last redraw, or process finished)
     while (completed_count < command_count) {
       redraw = false;
@@ -194,11 +210,11 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
         perror("wait4");
         return EXIT_FAILURE;
       } else if (finished_pid > 0) {
-        for (int i = 0; i < command_count; i++) {
-          if (pids[i] == finished_pid) {
+        for (int j = 0; j < command_count; j++) {
+          if (pids[j] == finished_pid) {
             // Keep index and status, note that a redraw is needed
-            statuses[i] = status;
-            completed[i] = true;
+            statuses[j] = status;
+            completed[j] = true;
             redraw = true;
             completed_count++;
             break;
@@ -207,12 +223,12 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
       }
       // Calculate time since last
       int clock_return = clock_gettime(CLOCK_MONOTONIC, &time);
-      if (clock_return == EXIT_FAILURE) {
+      if (clock_return == -1) {
         perror("clock_gettime");
         return EXIT_FAILURE;
       }
 
-      timespec_subtract(&elapsed, &last_redraw, &time, 3);
+      timespec_subtract(&elapsed, &last_redraw, &time, decimal_places);
       if (elapsed >= 0.1) {
         redraw = true;
         last_redraw = time;
@@ -221,12 +237,12 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
         printf("\033[%dA\r", command_count);
         for (int i = 0; i < command_count; i++) {
           double runtime;
-          timespec_subtract(&runtime, &starts[i], &time, 3);
+          timespec_subtract(&runtime, &starts[i], &time, decimal_places);
           if (completed[i]) {
             if (lines[i][0] == '\0') {
               char line[256];
               generate_completed_line(pipeline[i][0], statuses[i], runtime,
-                                      usage, line);
+                                      usage, line, true, decimal_places);
               snprintf(lines[i], sizeof(lines[i]), "%s", line);
             }
             printf("%s", lines[i]);
@@ -239,9 +255,11 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
           }
         }
       }
-      useconds_t delay = 10000;
-      if (usleep(delay) == -1) {
-        perror("usleep");
+      struct timespec delay;
+      delay.tv_sec = 0;
+      delay.tv_nsec = pow(10, (9 - decimal_places));
+      if (nanosleep(&delay, NULL) == -1) {
+        perror("nanosleep");
         return EXIT_FAILURE;
       }
     }
@@ -260,12 +278,12 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
       int number;
 
       if (finished_pid > 0) {
-        for (int i = 0; i < command_count; i++) {
-          if (pids[i] == finished_pid) {
+        for (int j = 0; j < command_count; j++) {
+          if (pids[j] == finished_pid) {
             // 'i' is the index of the finished process.
-            statuses[i] = status;
+            statuses[j] = status;
             // Keep that index
-            number = i;
+            number = j;
             break;
           }
         }
@@ -273,7 +291,7 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
 
       // Calculate the time it took to run
       int clock_return = clock_gettime(CLOCK_MONOTONIC, &ends[number]);
-      if (clock_return == EXIT_FAILURE) {
+      if (clock_return == -1) {
         perror("clock_gettime");
         return EXIT_FAILURE;
       }
@@ -282,9 +300,21 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
       timespec_subtract(&runtime, &starts[number], &ends[number], 3);
 
       char line[256];
-      generate_completed_line(pipeline[i][0], statuses[i], runtime, usage,
-                              line);
+      generate_completed_line(pipeline[number][0], statuses[number], runtime, usage,
+                              line, false, decimal_places);
       printf("%s", line);
+    }
+  }
+
+  if (!quiet) {
+    if (fseek(output, 0, SEEK_SET) != 0) {
+      perror("fseek");
+      return EXIT_FAILURE;
+    }
+    printf("---------- OUTPUT ----------\n");
+    int c;
+    while ((c = fgetc(output)) != EOF) {
+      putchar(c);
     }
   }
 
@@ -292,4 +322,8 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
   free(ends);
 
   return EXIT_SUCCESS;
+}
+
+void print_help() {
+  printf("Pipro -")
 }

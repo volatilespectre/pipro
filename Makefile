@@ -2,7 +2,7 @@ CC = gcc
 
 CFLAGS = -Wall -Wextra -Wpedantic -std=c17 -Iinclude -MMD -MP
 
-LDLIBS = -lm
+LDLIBS = -lm -g -fsanitize=address
 
 TARGET = pipro
 

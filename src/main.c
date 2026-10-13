@@ -13,18 +13,30 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 int main(int argc, char *argv[]) {
   // Set up variables to get from parser
   char ***pipeline;
   int command_count;
-  int parser = parse_pipeline(argc, argv, &pipeline, &command_count);
+  bool is_static = false;
+  bool help = false;
+  bool quiet = false;
+  int decimal_places = 3;
+  int parser = parse_args(argc, argv, &pipeline, &command_count, &is_static, &help, &quiet, &decimal_places);
 
   // Parser will return exit failure if allocation fails or incorrect arguments
   // are entered
   if (parser == EXIT_FAILURE) {
     return EXIT_FAILURE;
   }
+
+  if (help) {
+    print_help();
+    return EXIT_SUCCESS;
+  }
+
+
 
   // Pipeline will return PIDs to wait for and start times for processes, as
   // well as sending the output of the last program to a temporary file for
@@ -59,21 +71,13 @@ int main(int argc, char *argv[]) {
   }
 
   // Output will return exit failure if allocation fails
-  int output_return = show_output(pipeline, command_count, pids, starts);
+  int output_return = show_output(pipeline, command_count, pids, starts, is_static, decimal_places, output, quiet);
   if (output_return == EXIT_FAILURE) {
     return EXIT_FAILURE;
   }
 
-  if (fseek(output, 0, SEEK_SET) != 0) {
-    perror("fseek");
-    return EXIT_FAILURE;
-  }
-  printf("---------- OUTPUT ----------\n");
-  int c;
-  while ((c = fgetc(output)) != EOF) {
-    putchar(c);
-  }
-  fclose(output);
+     fclose(output);
+
 
   // Free all memory allocations
   free(pids);
@@ -87,6 +91,7 @@ int main(int argc, char *argv[]) {
     }
     free(pipeline[i]);
   }
+  free(pipeline);
 
   return EXIT_SUCCESS;
 }
