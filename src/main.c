@@ -6,6 +6,7 @@
 #include "pipeline.h"
 #include "time_utils.h"
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/resource.h>
@@ -18,7 +19,12 @@ int main(int argc, char *argv[]) {
   // Set up variables to get from parser
   char ***pipeline;
   int command_count;
-  int parser = parse_pipeline(argc, argv, &pipeline, &command_count);
+  bool is_static = false;
+  bool help = false;
+  bool quiet = false;
+  int decimal_places = 3;
+  int parser = parse_args(argc, argv, &pipeline, &command_count, &is_static,
+                          &help, &quiet, &decimal_places);
 
   // Parser will return exit failure if allocation fails or incorrect arguments
   // are entered
@@ -26,17 +32,30 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
+  if (help) {
+    print_help();
+    return EXIT_SUCCESS;
+  }
+
   // Pipeline will return PIDs to wait for and start times for processes, as
-  // well as sending the output of the last program to a temporary file for
-  // printing
-  // Note that the pipeline contains allocations that must be freed here, as
-  // their values are needed
+  // well as sending errors and the output of the last program to a temporary
+  // file for printing
+  // Note that the pipeline contains allocations that must be
+  // freed here, as their values are needed
   FILE *output = tmpfile();
   if (output == NULL) {
     perror("tmpfile");
     return EXIT_FAILURE;
   }
+
+  FILE *errors = tmpfile();
+  if (errors == NULL) {
+    perror("tmpfile");
+    return EXIT_FAILURE;
+  }
+
   int output_fd = fileno(output);
+  int errors_fd = fileno(errors);
   pid_t *pids = malloc(command_count * sizeof(pid_t));
   if (pids == NULL) {
     perror("malloc");
@@ -50,7 +69,7 @@ int main(int argc, char *argv[]) {
   }
 
   int pipeline_result =
-      run_pipeline(pipeline, command_count, pids, starts, output_fd);
+      run_pipeline(pipeline, command_count, pids, starts, output_fd, errors_fd);
 
   // Pipeline will return exit failure if system calls (pipe, fork, dup2) or
   // allocation fail
@@ -59,21 +78,15 @@ int main(int argc, char *argv[]) {
   }
 
   // Output will return exit failure if allocation fails
-  int output_return = show_output(pipeline, command_count, pids, starts);
+  int output_return =
+      show_output(pipeline, command_count, pids, starts, is_static,
+                  decimal_places, quiet, output, errors);
   if (output_return == EXIT_FAILURE) {
     return EXIT_FAILURE;
   }
 
-  if (fseek(output, 0, SEEK_SET) != 0) {
-    perror("fseek");
-    return EXIT_FAILURE;
-  }
-  printf("---------- OUTPUT ----------\n");
-  int c;
-  while ((c = fgetc(output)) != EOF) {
-    putchar(c);
-  }
   fclose(output);
+  fclose(errors);
 
   // Free all memory allocations
   free(pids);
@@ -87,6 +100,7 @@ int main(int argc, char *argv[]) {
     }
     free(pipeline[i]);
   }
+  free(pipeline);
 
   return EXIT_SUCCESS;
 }

@@ -5,6 +5,6 @@
 #include <time.h>
 
 int run_pipeline(char ***pipeline, int command_count, pid_t *pids,
-                 struct timespec *starts, int output_fd);
+                 struct timespec *starts, int output_fd, int errors_fd);
 
 #endif

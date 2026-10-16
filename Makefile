@@ -9,7 +9,10 @@ TARGET = pipro
 SRC = $(wildcard src/*.c)
 OBJ = $(SRC:src/%.c=build/%.o)
 
-.PHONY: all clean
+PREFIX ?= /usr/local
+BINDIR ?= ${PREFIX}/bin
+
+.PHONY: all clean install uninstall
 
 all: $(TARGET)
 
@@ -22,5 +25,12 @@ build/%.o: src/%.c
 
 clean:
 	rm -rf build $(TARGET)
+
+install: pipro
+	mkdir -p "${DESTDIR}${BINDIR}"
+	install -m 755 pipro "${DESTDIR}${BINDIR}/pipro"
+
+uninstall:
+	rm "${DESTDIR}${BINDIR}/pipro"
 
 -include $(OBJ:.o=.d)
