@@ -1,16 +1,17 @@
 #include <ctype.h>
+#include <getopt.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <stdbool.h>
-#include <getopt.h>
 
 int parse_pipeline(int argc, char *argv[], char ****pipeline,
                    int *command_count) {
   if (argc == 0) {
-    printf("You haven't entered a command to be profiled. ");
+    printf("You haven't entered a command to be profiled. Use --help for usage "
+           "information. ");
     return EXIT_FAILURE;
   }
 
@@ -28,6 +29,11 @@ int parse_pipeline(int argc, char *argv[], char ****pipeline,
     // Skip leading spaces
     while (isspace(*current)) {
       current++;
+    }
+
+    // Ensure no empty token
+    if (*current == '\0') {
+      break;
     }
 
     // Tokens only break on spaces, so skip all non space characters
@@ -87,7 +93,7 @@ int parse_pipeline(int argc, char *argv[], char ****pipeline,
     }
     (*pipeline)[command_number][len] = NULL;
     if (i != count) {
-        free(tokens[i]);
+      free(tokens[i]);
     }
     start = i + 1;
     command_number++;
@@ -98,56 +104,59 @@ int parse_pipeline(int argc, char *argv[], char ****pipeline,
   return EXIT_SUCCESS;
 }
 
-int parse_args(int argc, char **argv, char ****pipeline, int *command_count, bool *is_static, bool *help, bool *quiet, int *decimal_places) {
+int parse_args(int argc, char **argv, char ****pipeline, int *command_count,
+               bool *is_static, bool *help, bool *quiet, int *decimal_places) {
   int c;
 
-    char* short_options = "shqd:"; 
+  char *short_options = "shqd:";
 
-    // Map long options to their short equivalents
-    const struct option long_options[] = {
-        {"help", no_argument, NULL, 'h'},
-        {"static", no_argument, NULL, 's'},
-        {"quiet", no_argument, NULL, 'q'},
-        {"decimals", required_argument, NULL, 'd'},
-        {NULL, 0, NULL, 0} 
-    };
+  // Map long options to their short equivalents
+  const struct option long_options[] = {
+      {"help", no_argument, NULL, 'h'},
+      {"static", no_argument, NULL, 's'},
+      {"quiet", no_argument, NULL, 'q'},
+      {"decimals", required_argument, NULL, 'd'},
+      {NULL, 0, NULL, 0}};
 
-    // Parse options in a loop
-    while ((c = getopt_long(argc, argv, short_options, long_options, NULL)) != -1) {
-        switch (c) {
-            case 'h':
-                *help = true;
-                break;
-            case 's':
-                *is_static = true;
-                break;
-            case 'q':
-                *quiet = true;
-                break;
-            case 'd': {
-                char *end;
-                *decimal_places = (int)strtol(optarg, &end, 10);
-                if (end == optarg || *end != '\0' || *decimal_places < 0 || *decimal_places > 9) {
-                  *help = true;
-                }
-                break;
-              }
-            case '?':
-                // getopt_long automatically prints an error message
-                break;
-            default:
-                break;
-        }
+  // Parse options in a loop
+  while ((c = getopt_long(argc, argv, short_options, long_options, NULL)) !=
+         -1) {
+    switch (c) {
+    case 'h':
+      *help = true;
+      break;
+    case 's':
+      *is_static = true;
+      break;
+    case 'q':
+      *quiet = true;
+      break;
+    case 'd': {
+      char *end;
+      *decimal_places = (int)strtol(optarg, &end, 10);
+      if (end == optarg || *end != '\0' || *decimal_places < 0 ||
+          *decimal_places > 9) {
+        *help = true;
+        return EXIT_FAILURE;
+      }
+      break;
     }
-
-    if (help) {
-      return EXIT_SUCCESS;
+    case '?':
+      // getopt_long automatically prints an error message
+      return EXIT_FAILURE;
+    default:
+      break;
     }
-    if (optind == argc) {
-      printf("You haven't entered a command to be profiled. Use --help for usage information. \n");
-      return -1;
-    }
+  }
 
-    return parse_pipeline(argc - optind, &argv[optind], pipeline, command_count);
+  if (*help) {
+    return EXIT_SUCCESS;
+  }
+  if (optind == argc) {
+    printf("You haven't entered a command to be profiled. Use --help for usage "
+           "information. \n");
+    return -1;
+  }
+
+  return parse_pipeline(argc - optind, &argv[optind], pipeline, command_count);
 }
-
