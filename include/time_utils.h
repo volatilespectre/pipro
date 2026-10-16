@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 volatilespectre
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #ifndef TIME_UTILS_H_
 #define TIME_UTILS_H_
 
