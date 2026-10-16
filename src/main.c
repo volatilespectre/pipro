@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 volatilespectre
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #define _POSIX_C_SOURCE 199309L
 #define _DEFAULT_SOURCE
 

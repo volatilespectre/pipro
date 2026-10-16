@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) 2026 volatilespectre
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #include <math.h>
 #include <sys/time.h>
 #include <time.h>
