@@ -370,7 +370,8 @@ void print_help() {
       "  -s, --static        Disable the interactive progress display and "
       "remove ANSI escape sequences\n"
       "  -q, --quiet         Suppress the pipeline's output\n"
-      "  -d, --decimals N    Set the number of decimal places (0-9)\n"
+      "  -d, --decimals N    Set the number of decimal places to report "
+      "statistics to (0-9)\n"
       "\n"
       "Statistics:\n"
       "  Return code\n"
@@ -390,5 +391,5 @@ void print_help() {
       "overlap.\n"
       "  Shell features such as redirection and complex quoting may not be "
       "supported.\n"
-      "  Not all statistics can be given to the maximum precision\n");
+      "  Not all statistics can be given to all levels of precision\n");
 }

@@ -1,4 +1,4 @@
-CC = gcc
+CC ?= cc
 
 CFLAGS = -Wall -Wextra -Wpedantic -std=c17 -Iinclude -MMD -MP
 
