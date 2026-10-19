@@ -1,0 +1,84 @@
+
+.Dd October 18, 2026
+.Dt PIPRO 1
+.Os
+.Sh NAME
+.Nm pipro
+.Nd profile command pipelines
+.Sh SYNOPSIS
+.Nm
+.Op Fl h | Fl -help
+.Op Fl s | Fl -static
+.Op Fl q | Fl -quiet
+.Op Fl d Ar decimals | Fl -decimals Ar decimals
+.Ar pipeline
+.Sh DESCRIPTION
+.Nm
+executes a pipeline of commands and reports resource usage and timing
+information for each process in the pipeline.
+It is intended to help identify performance bottlenecks and failures
+without requiring each command to be run individually.
+.Pp
+The pipeline must be supplied as a single argument.
+Commands are separated by the
+.Sq |
+character.
+.Nm
+is not a shell, and does not support all shell syntax.
+.Pp
+For each process,
+.Nm
+reports its wall-clock runtime, user CPU time, system CPU time,
+exit status, and peak memory usage.
+The precision and availability of these measurements may vary by
+operating system.
+.Pp
+When standard output is connected to a terminal,
+.Nm
+displays a live progress interface unless static output is requested.
+Otherwise, it prints a static report.
+The output produced by the final command in the pipeline is displayed
+after execution unless quiet mode is enabled.
+.Sh OPTIONS
+The following options are available:
+.Bl -tag -width Ds
+.It Fl h , Fl -help
+Display usage information and exit.
+.It Fl s , Fl -static
+Disable the live progress interface and print a static report.
+ANSI escape sequences are stripped from the report.
+.It Fl q , Fl -quiet
+Suppress the captured output of the pipeline.
+.It Fl d Ar decimals , Fl -decimals Ar decimals
+Set the number of decimal places displayed for supported measurements.
+Not all measurements can provide meaningful precision at the
+requested level.
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+Profile a simple pipeline:
+.Pp
+.Dl pipro 'cat file.txt | grep example | wc -l'
+.Pp
+Print a static report with four decimal places:
+.Pp
+.Dl pipro -s -d 4 'cat file.txt | grep example | wc -l'
+.Pp
+Suppress the output:
+.Pp
+.Dl pipro -q 'cat file.txt | grep example | wc -l'
+.Sh CAVEATS
+.Nm
+does not implement a complete shell parser.
+Shell features such as redirection and complex quoting are not fully
+supported.
+.Pp
+Resource usage measurements depend on the facilities provided by the
+underlying operating system.
+.Sh AUTHORS
+.An volatilespectre
+.Sh SEE ALSO
+.Xr sh 1 ,
+.Xr time 1,
+.Xr pipe 2
