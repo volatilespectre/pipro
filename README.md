@@ -17,12 +17,11 @@ Pass the pipeline as a single quoted argument:
 pipro "cmd1 | cmd2 | cmd3"
 ```
 
-| Option | Description |
-|---|---|
-| `-s`, `--static` | Disable the interactive progress display and remove ANSI escape sequences |
-| `-d`, `--decimals` | Set the number of decimal places (0-9) |
-| `-h`, `--help` | Print a help message and exit |
-| `-q`, `--quiet` | Suppress the pipeline's output |
+Options:
+- -s, --static     Disable the interactive progress display and remove ANSI escape sequences
+- -d, --decimals   Set the number of decimal places (0-9)
+- -h, --help       Print a help message and exit
+- -q, --quiet      Suppress the pipeline's output
 Note that not all metrics can be reported to all levels, and high levels of precision may increase runtime due to frequent checks.
 
 Example:
