@@ -42,10 +42,10 @@ ping                 Signal (13)          9.068                0.000           0
 
 ### Requirements
 - A C compiler (GCC or Clang)
-- Make
+- GNU Make
 
 ### Installation
-Clone the repo and build using make:
+Clone the repo and build using make (replace make with gmake after installing it on BSD):
 ```bash
 git clone https://github.com/volatilespectre/pipro.git
 cd pipro
