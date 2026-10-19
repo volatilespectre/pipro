@@ -48,6 +48,7 @@ ping                 Signal (13)          9.068                0.000           0
 Clone the repo and build using make:
 ```bash
 git clone https://github.com/volatilespectre/pipro.git
+cd pipro
 sudo make install
 ```
 
