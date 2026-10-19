@@ -160,7 +160,7 @@ int parse_args(int argc, char **argv, char ****pipeline, int *command_count,
   if (optind == argc) {
     printf("You haven't entered a command to be profiled. Use --help for usage "
            "information. \n");
-    return -1;
+    return EXIT_FAILURE;
   }
 
   return parse_pipeline(argc - optind, &argv[optind], pipeline, command_count);
