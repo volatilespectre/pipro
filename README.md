@@ -18,7 +18,7 @@ pipro "cmd1 | cmd2 | cmd3"
 ```
 
 Options:
-- -s, --static     TDisable the interactive progress display and remove ANSI escape sequences
+- -s, --static     Disable the interactive progress display and remove ANSI escape sequences
 - -d, --decimals   Set the number of decimal places (0-9)
 - -h, --help       Print a help message and exit
 - -q, --quiet      Suppress the pipeline's output
@@ -58,8 +58,10 @@ There's a number of feature ideas I haven't yet had time to implement. In no par
 - Test on MacOS
 
 ### Contributing
-If you find any bugs, you can report them through GitHub, please include steps to reproduce. If you would like to see new features implemented, open an issue and I'll prioritise that if possible.
-If you have a Mac and can test it out, that would be a huge help.
+- If you find any bugs, you can report them through GitHub, please include steps to reproduce. 
+- If you would like to see new features implemented, open an issue and I'll prioritise that if possible.
+- If you have a Mac and can test it out, that would be a huge help.
+- If you found pipro useful and want to help people access it, consider packaging it for your package manager of choice.
 
 ## License
 Pipro is licensed under the GPL, v3 or later. See LICENSE for the full terms.
