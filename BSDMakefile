@@ -1,0 +1,49 @@
+
+CC ?= cc
+
+CFLAGS += -Wall -Wextra -Wpedantic -std=c17 -Iinclude
+CFLAGS += -MMD -MP
+LDLIBS += -lm
+
+TARGET = pipro
+
+SRC != find src -type f -name '*.c' -print
+OBJ = ${SRC:S,^src/,build/, :S,.c$,.o,}
+
+DEP = ${OBJ:.o=.d}
+
+PREFIX ?= /usr/local
+BINDIR ?= ${PREFIX}/bin
+MANDIR ?= ${PREFIX}/man
+
+.PHONY: all clean install uninstall
+
+all: ${TARGET}
+
+${TARGET}: ${OBJ}
+	${CC} ${LDFLAGS} -o ${.TARGET} ${OBJ} ${LDLIBS}
+
+.SUFFIXES: .c .o
+
+.c.o:
+	@mkdir -p build
+	${CC} ${CFLAGS} -c ${.IMPSRC} -o build/${.PREFIX}.o
+
+.for dep in ${DEP}
+.if exists(${dep})
+.include "${dep}"
+.endif
+.endfor
+
+clean:
+	rm -rf build ${TARGET}
+
+install: ${TARGET}
+	install -d "${DESTDIR}${BINDIR}"
+	install -d "${DESTDIR}${MANDIR}/man1"
+	install -m 755 ${TARGET} "${DESTDIR}${BINDIR}/${TARGET}"
+	install -m 644 pipro.1 "${DESTDIR}${MANDIR}/man1/pipro.1"
+
+uninstall:
+	rm -f "${DESTDIR}${BINDIR}/${TARGET}"
+	rm -f "${DESTDIR}${MANDIR}/man1/pipro.1"
