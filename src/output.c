@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#if defined(__linux__)
 #define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
+#endif
 
 #include "parser.h"
 #include "pipeline.h"
