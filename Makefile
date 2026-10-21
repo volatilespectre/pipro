@@ -22,7 +22,7 @@ $(TARGET): $(OBJ)
 
 build/%.o: src/%.c
 	@mkdir -p build
-	$(CC) $(CFLAGS) -c $< -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -rf build $(TARGET)
