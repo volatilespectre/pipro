@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#define _POSIX_C_SOURCE 199309L
-#define _DEFAULT_SOURCE
+#define _POSIX_C_SOURCE 200809L
 
 #include "output.h"
 #include "parser.h"

@@ -3,8 +3,10 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#define _POSIX_C_SOURCE 199309L
+#if defined(__linux__)
+#define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
+#endif
 
 #include "parser.h"
 #include "pipeline.h"
@@ -14,6 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -292,7 +295,7 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
       // Wait for the first command to finish, and get resource usage stats
 
       pid_t finished_pid = wait4(-1, &status, 0, &usage);
-      int number;
+      int number = -1;
 
       if (finished_pid > 0) {
         for (int j = 0; j < command_count; j++) {
@@ -303,6 +306,12 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
             number = j;
             break;
           }
+        }
+
+        // Check if PID not found
+        if (number == -1) {
+          fprintf(stderr, "Error: Unknown process reaped \n");
+          return EXIT_FAILURE;
         }
       } else {
         perror("wait4");
@@ -359,7 +368,7 @@ int show_output(char ***pipeline, int command_count, pid_t *pids,
   return EXIT_SUCCESS;
 }
 
-void print_help() {
+void print_help(void) {
   puts(
       "Usage: pipro [OPTIONS] \"COMMAND | COMMAND ...\"\n"
       "\n"
