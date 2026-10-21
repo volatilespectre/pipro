@@ -6,6 +6,8 @@
 #ifndef TIME_UTILS_H_
 #define TIME_UTILS_H_
 
+#include <sys/time.h>
+
 void timespec_subtract(double *result, struct timespec *start,
                        struct timespec *end, int decimal_places);
 
